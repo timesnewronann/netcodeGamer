@@ -3,60 +3,67 @@ using UnityEngine.UI;
 using Unity.Netcode;
 using TMPro;
 
-
-// Health system to try and take damage for players 
 public class Health : NetworkBehaviour
 {
-    [SerializeField] private int maxHealth = 100;
-    private int currentHealth;
-    public Image healthBarImage; // Assign this in the inspector
-    public TextMeshProUGUI healthText; // Reference to the TextMeshProUGUI component
+    public NetworkVariable<int> HealthPoints = new NetworkVariable<int>();
+
+    [SerializeField] private TextMeshProUGUI healthText;
+
+    private const int maxHealth = 100;
+
+    private void Start()
+    {
+        if (IsOwner)
+        {
+            HealthPoints.Value = maxHealth;
+        }
+    }
 
     public override void OnNetworkSpawn()
     {
         if (IsOwner)
         {
-            currentHealth = maxHealth;
-            UpdateHealthUI();
+            HealthPoints.OnValueChanged += UpdateHealthUI;
+            UpdateHealthUI(HealthPoints.Value, HealthPoints.Value);
         }
     }
 
     [ServerRpc(RequireOwnership = false)]
     public void TakeDamageServerRpc(int damage)
     {
-        currentHealth -= damage;
-        currentHealth = Mathf.Max(currentHealth, 0);
-
-        // Call an RPC to update the UI on the client
-        UpdateHealthClientRpc(currentHealth);
-        
-        if (currentHealth <= 0)
+        if (IsServer)
         {
-            // Handle death here
+            HealthPoints.Value = Mathf.Max(HealthPoints.Value - damage, 0);
+            if (HealthPoints.Value <= 0)
+            {
+                // Handle death here, e.g., disable the player gameObject
+                // gameObject.SetActive(false);
+                HandleDeath();
+            }
         }
     }
 
-    [ClientRpc]
-    private void UpdateHealthClientRpc(int newHealth)
+    private void HandleDeath()
     {
-        // Update the health UI only on the client that owns this object
-        if(IsOwner)
-        {
-            UpdateHealthUI();
-        }
+        // Death handling logic goes here
+        Debug.Log("Player has died.");
     }
 
-    private void UpdateHealthUI()
+    private void UpdateHealthUI(int oldHealth, int newHealth)
     {
-        if (healthBarImage != null)
-        {
-            healthBarImage.fillAmount = (float)currentHealth / maxHealth;
-        }
-        
-        // Update the health text with the current health
         if (healthText != null)
         {
-            healthText.text = $"Health: {currentHealth} / {maxHealth}";
+            healthText.text = $"Health: {newHealth} / {maxHealth}";
         }
     }
+
+    private void OnDestroy()
+    // Fixed the CS0114 error 
+    {
+        if (IsOwner && NetworkManager.Singleton.IsServer)
+        {
+            HealthPoints.OnValueChanged -= UpdateHealthUI;
+        }
+    }
+
 }

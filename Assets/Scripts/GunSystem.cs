@@ -93,23 +93,23 @@ public class GunSystem :  NetworkBehaviour
         //Calulate direction with the spread
         Vector3 direction = fpsCam.transform.forward + new Vector3(x, y, 0);
 
-        // Ray cast for the bullets ad shooting
+        // Raycast for shooting
         if (Physics.Raycast(fpsCam.transform.position, direction, out rayHit, range, whatIsEnemy))
         {
-            // Check if we are getting hits 
-            Debug.Log(rayHit.collider.name);
-
-            // Check if the hit is an enemy 
-            if (rayHit.collider.CompareTag("Enemy"))
+        // Check if the hit object has the 'Player' tag and is not the current player
+            if (rayHit.collider.CompareTag("Player") && rayHit.collider.gameObject != gameObject)
             {
-                var enemyHealth = rayHit.collider.GetComponent<Health>();
-                if(enemyHealth != null)
+                Debug.Log($"Hit: {rayHit.collider.name} on Layer: {LayerMask.LayerToName(rayHit.collider.gameObject.layer)}");
+                // Call the TakeDamageServerRpc function on the hit player's Health script
+                Health enemyHealth = rayHit.collider.GetComponent<Health>();
+                if (enemyHealth != null)
                 {
-                    // use server rpc to provide the damage for the enemies 
                     enemyHealth.TakeDamageServerRpc(damage);
                 }
             }
         }
+
+
 
          //ShakeCamera
          //camShake.Shake(camShakeDuration, camShakeMagnitude);
